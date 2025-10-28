@@ -1,37 +1,26 @@
-mod config;
-mod db;
+mod cmd;
+mod api;
+mod modules;
 mod error;
 mod logger;
-mod modules;
+mod config;
+mod db;
 
-use axum::Router;
-use modules::notes;
-use tracing::info;
-use config::AppConfig;
+use std::env;
 
 #[tokio::main]
-async fn main() -> Result<(), anyhow::Error> {
-    // Initialize
-    let config = AppConfig::from_env();
-    logger::init_logger();
+async fn main() -> anyhow::Result<()> {
+    let args: Vec<String> = env::args().collect();
 
-    // Initialize database
-    let pool = db::init_db(&config).await?;
-
-    // Build routes
-    let app = Router::new()
-        .nest("/notes", notes::routes())
-        .with_state(pool);
-
-    let addr = config.addr();
-    info!("🚀 Server running at http://{}", addr);
-
-    // Start server
-    axum::serve(
-        tokio::net::TcpListener::bind(&addr).await?,
-        app,
-    )
-    .await?;
+    match args.get(1).map(|s| s.as_str()) {
+        Some("api") => cmd::api::run().await?,
+        Some("worker") => {
+            println!("🚧 Worker service not implemented yet");
+        }
+        _ => {
+            eprintln!("Usage: cargo run -- <api|worker>");
+        }
+    }
 
     Ok(())
 }
